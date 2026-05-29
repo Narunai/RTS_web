@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large assets
+assets/*.zip
+assets/Rocks.psd
+assets/AI/
+assets/EPS/
+assets/__MACOSX/

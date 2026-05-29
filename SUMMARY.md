@@ -1,53 +1,63 @@
-# RTS-WEB Project Summary
+# RTS-WEB Project Summary & Architecture
 
-## Overview
-A web-based Real-Time Strategy (RTS) game prototype using a Python backend (FastAPI) and a Vanilla JavaScript frontend (Canvas API). The game features a block-based world expansion system, resource gathering, and real-time combat via WebSockets.
+เอกสารสรุปโครงสร้างไฟล์และการทำงานของระบบทั้งหมดในโปรเจ็ค RTS-WEB
 
-## Architecture
+---
 
-### Backend (`backend/main.py`)
-- **Framework:** FastAPI
-- **Communication:** WebSockets (`/ws/{player_id}`)
-- **Core Entities:**
-  - `Tile`: Individual 20x20px grid cells (Empty, River, Resource, Building).
-  - `Unit`: Mobile entities (Soldier, Gatherer) with HP, attack, and movement logic.
-  - `Block`: 30x30 tile sections used for world generation and expansion.
-  - `World`: Global state manager for blocks, units, and player data.
-- **Game Logic:**
-  - `game_loop`: Periodic task (500ms) handling movement, combat, and resource extraction.
-  - `resource_spawner`: Replenishes resources every 5 minutes.
-  - Daily exploration limit: Players are restricted in how many blocks they can create per day.
+## 1. โครงสร้างโฟลเดอร์ (Directory Structure)
 
-### Frontend (`frontend/`)
-- **Technology:** HTML5, CSS3, Vanilla JavaScript.
-- **Rendering:** HTML5 Canvas for high-performance 2D graphics.
-- **Key Components:**
-  - `game.js`: Handles WebSocket communication, camera (pan/zoom), selection logic (box selection), and rendering.
-  - Procedural Sprites: Buildings and units are drawn using Canvas primitives instead of static images.
-  - UI: Floating action panels for building management and resource displays.
-
-## Current Progress & Features
-- [x] WebSocket integration for real-time multiplayer.
-- [x] Basic world generation (Rivers, Resources).
-- [x] Unit movement and grid-snapping.
-- [x] Resource gathering (Gold, Wood, Food).
-- [x] Building construction (Castle, Tower, Barracks).
-- [x] Unit production from buildings.
-- [x] Combat system (Unit vs Unit, Unit vs Building).
-- [x] Camera pan and zoom controls.
-- [x] Daily exploration quotas and map expansion.
-
-## Project Structure
-```
+```text
 D:\Project\RTS_WEB\
-├── aesses\          # Raw assets and character packs (Zip/AI/EPS/PNG)
-├── backend\
-│   └── main.py      # FastAPI server and game logic
-└── frontend\
-    ├── game.js      # Main game client logic
-    └── index.html   # Game entry point and UI
+├── backend/                # ส่วนควบคุมการประมวลผล (Server-side)
+│   └── main.py             # ไฟล์หลักที่รวม Logic เกม, Web Server และ WebSocket
+├── frontend/               # ส่วนแสดงผลและหน้าตาเกม (Client-side)
+│   ├── index.html          # โครงสร้างหน้าเว็บและจุดเชื่อมต่อ UI
+│   ├── game.js             # หัวใจหลักของ Frontend (Rendering, Socket, Game State)
+│   ├── input.js            # จัดการการคลิกเมาส์, การเลือกยูนิต และการสั่งเดิน
+│   ├── auth.js             # ระบบสมัครสมาชิกและเข้าสู่ระบบ
+│   ├── common.js           # เก็บตัวแปร DOM และค่าคงที่ที่ใช้ร่วมกัน
+│   └── models.js           # การตั้งค่าโมเดลอาคาร, ยูนิต และที่อยู่ไฟล์ Assets
+├── assets/                 # ทรัพยากรรูปภาพที่ใช้ในเกม (แตกไฟล์จาก Zip แล้ว)
+│   ├── PNG/                # รูปภาพสิ่งก่อสร้างและพื้นหญ้า
+│   └── archer/ soldier/    # รูปภาพยูนิตต่างๆ
+├── SUMMARY.md              # (ไฟล์นี้) สรุปภาพรวมโปรเจ็ค
+└── GAME_RULES.md           # กฎเกณฑ์และแมคคานิคของเกม
 ```
 
-## How to Run
-1. **Backend:** Navigate to `backend/` and run `uvicorn main:app --reload`.
-2. **Frontend:** Open `frontend/index.html` in a web browser.
+---
+
+## 2. รายละเอียดการทำงานของแต่ละส่วน
+
+### 🌐 Backend (`backend/main.py`)
+ทำงานด้วย **FastAPI** และใช้ **WebSocket** ในการส่งข้อมูลแบบ Real-time
+*   **Game Loop:** รันฟังก์ชันวนลูปทุก 500ms เพื่อคำนวณตำแหน่งยูนิต, การต่อสู้, และการเก็บทรัพยากร
+*   **Stateful Server:** เก็บข้อมูลโลกทั้งใบ (World, Blocks, Units) ไว้ใน RAM ทำให้การประมวลผลรวดเร็ว
+*   **Static Serving:** ทำหน้าที่เป็น Web Server ส่งไฟล์รูปภาพจากโฟลเดอร์ `assets` และหน้าเว็บจาก `frontend` ให้ผู้เล่น
+
+### 🎨 Frontend (`frontend/`)
+ใช้ **Vanilla JavaScript** (ไม่ใช้ Framework) เพื่อประสิทธิภาพสูงสุดในการวาดภาพ
+*   **`game.js`:** 
+    *   สร้างระบบ **Rendering Loop** วาดภาพลงบน Canvas 
+    *   จัดการ **WebSocket Message** เพื่ออัปเดตข้อมูลยูนิตและแผนที่ที่ได้รับจากเซิร์ฟเวอร์
+    *   มีระบบ **Image Caching** เพื่อให้การวาดรูปภาพลื่นไหลไม่กระพริบ
+*   **`input.js`:** 
+    *   คำนวณพิกัดจากหน้าจอ (Screen Space) แปลงเป็นพิกัดในเกม (World Space) 
+    *   จัดการระบบ **Selection Box** (ลากเมาส์ครอบยูนิต) และการสั่งงานผ่านการคลิกขวา
+*   **`models.js`:** 
+    *   เป็นศูนย์กลางการตั้งค่า (Configuration) เช่น เลือดเริ่มต้น, ราคาของอาคาร, และรัศมีการยิง
+
+---
+
+## 3. ผังการไหลของข้อมูล (Data Flow)
+
+1.  **User Action:** ผู้เล่นคลิกสั่งยูนิตในหน้าเว็บ (`input.js`)
+2.  **Request:** ข้อมูลถูกส่งผ่าน WebSocket ไปยังเซิร์ฟเวอร์ (`main.py`)
+3.  **Process:** เซิร์ฟเวอร์ตรวจสอบเงื่อนไข (เช่น มีทรัพยากรพอไหม?) และอัปเดตสถานะใน RAM
+4.  **Broadcast:** เซิร์ฟเวอร์ส่งข้อมูลที่เปลี่ยนแปลงกลับไปหาผู้เล่นทุกคน (`UNIT_UPDATE` หรือ `TILE_UPDATE`)
+5.  **Render:** หน้าเว็บรับข้อมูลใหม่และวาดภาพลงบนจอทันที (`game.js`)
+
+---
+
+## 4. วิธีการเริ่มพัฒนา/รันระบบ
+1.  **เริ่มเซิร์ฟเวอร์:** รันคำสั่ง `uvicorn main:app --reload --port 3000` ภายในโฟลเดอร์ `backend`
+2.  **เข้าใช้งาน:** เปิดเบราว์เซอร์ไปที่ `http://localhost:3000`

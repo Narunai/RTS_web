@@ -93,6 +93,34 @@
         <div class="btn" style="margin-top: 20px; width: 100%; text-align: center;" onclick="closeActionPanel()">ปิด</div>
     </div>
 
+    <div id="unit-status-panel">
+        <h3 style="color: #0cf; margin-top: 0;">สถานะยูนิต</h3>
+        <hr>
+        <div id="unit-stats">
+            <!-- Stats load here -->
+        </div>
+        <div class="btn" style="margin-top: 15px; width: 100%; text-align: center; font-size: 12px;" onclick="closeUnitPanel()">ปิด</div>
+    </div>
+
+    <style>
+        #unit-status-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 180px;
+            background: rgba(0,0,0,0.85);
+            border: 1px solid #0cf;
+            padding: 15px;
+            color: white;
+            display: none;
+            pointer-events: auto;
+            z-index: 100;
+        }
+        #unit-status-panel.active { display: block; }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; }
+        .stat-label { color: #aaa; }
+    </style>
+
     <style>
         #action-panel {
             position: fixed;

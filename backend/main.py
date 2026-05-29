@@ -59,6 +59,7 @@ class Tile:
         self.owner = owner
         self.hp = 500 if type == "castle" else (200 if type in ["tower", "barracks"] else 100)
         self.max_hp = self.hp
+        self.last_attack_time = 0 # Timestamp of last shot
 
 class Unit:
     def __init__(self, id: str, type: str, x: float, y: float, owner: str):
@@ -160,17 +161,29 @@ class World:
     def add_block(self, x: int, y: int, owner: str, is_free: bool = False):
         key = f"{x},{y}"
         if key not in self.blocks:
+            player_data = self.get_player_data(owner)
             if owner != "neutral" and not is_free:
-                player_data = self.get_player_data(owner)
-                if player_data["blocks_created_today"] >= 2:
-                    return False, "สิทธิ์สร้างบล็อกต่อวันหมดแล้ว"
+                # Explore Cost: G:200, W:200, F:100
+                cost = {"gold": 200, "wood": 200, "food": 100}
+                if player_data["gold"] < cost["gold"] or player_data["wood"] < cost["wood"] or player_data["food"] < cost["food"]:
+                    print(f"Explore failed for {owner}: Not enough resources")
+                    return False, f"ทรัพยากรไม่พอสำหรับการสำรวจ (ต้องการ G:{cost['gold']}, W:{cost['wood']}, F:{cost['food']})"
+                
+                if player_data["blocks_created_today"] >= 3:
+                    print(f"Explore failed for {owner}: Daily limit reached (3)")
+                    return False, "สิทธิ์สร้างบล็อกต่อวันหมดแล้ว (จำกัด 3 บล็อก/วัน)"
+                
+                player_data["gold"] -= cost["gold"]
+                player_data["wood"] -= cost["wood"]
+                player_data["food"] -= cost["food"]
                 player_data["blocks_created_today"] += 1
+                print(f"Explore success for {owner}: Created block {x},{y}")
             
             new_block = Block(x, y, owner if owner != "neutral" else None)
             new_block.spawn_resources()
             self.blocks[key] = new_block
             return True, None
-        return False, "บล็อกนี้มีอยู่แล้ว"
+        return False, "พื้นที่นี้ถูกสำรวจไปแล้ว"
 
     def get_player_data(self, player_id: str):
         today = datetime.date.today().isoformat()
@@ -252,7 +265,7 @@ async def game_loop():
                     next_x = unit.x + dx * ratio
                     next_y = unit.y + dy * ratio
                 
-                # River collision check (check new position)
+                # Exploration boundary check & River collision
                 b_x = int(next_x // (30 * 20))
                 b_y = int(next_y // (30 * 20))
                 t_x = int((next_x % (30 * 20)) // 20)
@@ -260,10 +273,13 @@ async def game_loop():
                 key = f"{b_x},{b_y}"
                 
                 can_move = True
-                if key in world.blocks:
-                    if world.blocks[key].tiles[t_y][t_x].type == "river":
-                        can_move = False
-                        unit.target_x, unit.target_y = unit.x, unit.y
+                if key not in world.blocks:
+                    # Cannot move to unexplored block
+                    can_move = False
+                    unit.target_x, unit.target_y = unit.x, unit.y
+                elif world.blocks[key].tiles[t_y][t_x].type == "river":
+                    can_move = False
+                    unit.target_x, unit.target_y = unit.x, unit.y
                 
                 if can_move:
                     unit.x, unit.y = next_x, next_y
@@ -271,6 +287,48 @@ async def game_loop():
 
         # Combat & Gathering Logic
         changed_tiles = []
+        
+        # 1. Building Attack Logic (Towers/Castles)
+        import time
+        current_time = datetime.datetime.now().timestamp()
+        for key, block in world.blocks.items():
+            bx, by = map(int, key.split(","))
+            for ty in range(30):
+                for tx in range(30):
+                    tile = block.tiles[ty][tx]
+                    if tile.owner and tile.type in ["tower", "castle"]:
+                        fire_rate = 1.0 if tile.type == "tower" else 2.0
+                        if current_time - tile.last_attack_time >= fire_rate:
+                            tile_x = (bx * 30 * 20) + (tx * 20) + 10
+                            tile_y = (by * 30 * 20) + (ty * 20) + 10
+                            defense_range = 250 if tile.type == "tower" else 150
+                            defense_attack = 20 if tile.type == "tower" else 10
+                            
+                            target = None
+                            for unit in world.units.values():
+                                if unit.owner != tile.owner:
+                                    dist = ((tile_x - unit.x)**2 + (tile_y - unit.y)**2)**0.5
+                                    if dist <= defense_range:
+                                        target = unit
+                                        break
+                            
+                            if target:
+                                target.hp -= defense_attack
+                                tile.last_attack_time = current_time
+                                unit_update_needed = True
+                                # Visual Attack Event
+                                await manager.broadcast(json.dumps({
+                                    "type": "ATTACK_EVENT",
+                                    "attacker": {"x": tile_x, "y": tile_y, "type": tile.type},
+                                    "target": {"x": target.x, "y": target.y, "id": target.id}
+                                }))
+                                if target.hp <= 0:
+                                    if target.type == "gatherer":
+                                        world.players[target.owner]["gatherer_count"] -= 1
+                                    if target.id in world.units:
+                                        del world.units[target.id]
+
+        # 2. Unit Logic (Existing: Attack and Gathering)
         for unit in list(world.units.values()):
             # Attack enemy units
             for other in list(world.units.values()):

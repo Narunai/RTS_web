@@ -12,11 +12,13 @@ let currentMode = null;
 let currentBuildType = null;
 let socket = null;
 let playerId = null;
+let attackEffects = []; // { x1, y1, x2, y2, time, type }
 
 // UI State
 let isSelecting = false;
 let selectionBox = null;
 let selectedUnitIds = [];
+let selectedBuilding = null; // { bx, by, tx, ty, type }
 let isDraggingCamera = false;
 let lastMouse = { x: 0, y: 0 };
 
@@ -56,6 +58,13 @@ function initGame() {
             });
         } else if (msg.type === "RES_UPDATE") {
             updateUI(msg.player_data);
+        } else if (msg.type === "ATTACK_EVENT") {
+            attackEffects.push({
+                x1: msg.attacker.x, y1: msg.attacker.y,
+                x2: msg.target.x, y2: msg.target.y,
+                type: msg.attacker.type,
+                time: Date.now()
+            });
         } else if (msg.type === "ERROR") {
             showNotification(msg.message);
         }
@@ -104,43 +113,88 @@ window.setBuildType = function(type) {
     });
 };
 
-window.showActionPanel = function(type, bx, by, tx, ty) {
+function showActionPanel(type, bx, by, tx, ty) {
     const model = BUILDING_MODELS[type];
     if (!model) return;
     
-    panelTitle.innerText = model.title;
-    panelContent.innerHTML = `<p>${model.description}</p>`;
-    
-    model.actions.forEach(act => {
-        const btn = document.createElement('button');
-        btn.className = 'action-btn';
-        btn.innerHTML = `${act.label}<br><small>${act.sub}</small>`;
-        btn.onclick = () => {
-            let msgType = "PRODUCE_UNIT";
-            if (act.action === "produceGatherer") msgType = "PRODUCE_GATHERER";
-            else if (act.action === "produceArcher") msgType = "PRODUCE_ARCHER";
-            
-            socket.send(JSON.stringify({ type: msgType, bx, by, tx, ty }));
-        };
-        panelContent.appendChild(btn);
-    });
+    selectedBuilding = { bx, by, tx, ty, type };
+    const block = worldBlocks.find(b => b.x === bx && b.y === by);
+    const tile = block ? block.tiles[ty][tx] : null;
+    if (!tile) return;
 
-    const sellBtn = document.createElement('button');
-    sellBtn.className = 'action-btn';
-    sellBtn.style.marginTop = "10px";
-    sellBtn.style.background = "#622";
-    sellBtn.innerText = "ขายสิ่งก่อสร้าง (คืนทุน 100%)";
-    sellBtn.onclick = () => {
-        socket.send(JSON.stringify({ type: "SELL_BUILDING", bx, by, tx, ty }));
-        closeActionPanel();
-    };
-    panelContent.appendChild(sellBtn);
+    const isEnemy = tile.owner !== playerId;
+    const hpInfo = `<div style="background: #444; padding: 5px; margin-bottom: 10px; border-radius: 4px;">
+        <span style="color: #aaa; font-size: 12px;">พลังชีวิต (HP):</span><br>
+        <b style="color: ${isEnemy ? '#f22' : '#2f2'};">${Math.floor(tile.hp)}</b> / ${tile.max_hp}
+        ${isEnemy ? `<br><small style="color: #f66;">(เจ้าของ: ${tile.owner || 'เป็นกลาง'})</small>` : ''}
+    </div>`;
+
+    panelTitle.innerText = model.title + (isEnemy ? " (ศัตรู)" : "");
+    panelContent.innerHTML = hpInfo + `<p>${model.description}</p>`;
+    
+    if (!isEnemy) {
+        model.actions.forEach(act => {
+            const btn = document.createElement('button');
+            btn.className = 'action-btn';
+            btn.innerHTML = `${act.label}<br><small>${act.sub}</small>`;
+            btn.onclick = () => {
+                let msgType = "PRODUCE_UNIT";
+                if (act.action === "produceGatherer") msgType = "PRODUCE_GATHERER";
+                else if (act.action === "produceArcher") msgType = "PRODUCE_ARCHER";
+                
+                socket.send(JSON.stringify({ type: msgType, bx, by, tx, ty }));
+            };
+            panelContent.appendChild(btn);
+        });
+
+        const sellBtn = document.createElement('button');
+        sellBtn.className = 'action-btn';
+        sellBtn.style.marginTop = "10px";
+        sellBtn.style.background = "#622";
+        sellBtn.innerText = "ขายสิ่งก่อสร้าง (คืนทุน 100%)";
+        sellBtn.onclick = () => {
+            socket.send(JSON.stringify({ type: "SELL_BUILDING", bx, by, tx, ty }));
+            closeActionPanel();
+        };
+        panelContent.appendChild(sellBtn);
+    }
     
     actionPanel.classList.add('active');
-};
+    closeUnitPanel();
+}
+
+window.showActionPanel = showActionPanel;
 
 window.closeActionPanel = function() {
     actionPanel.classList.remove('active');
+    selectedBuilding = null;
+};
+
+const unitStatusPanel = document.getElementById('unit-status-panel');
+const unitStats = document.getElementById('unit-stats');
+
+window.showUnitPanel = function(unit) {
+    const isEnemy = unit.owner !== playerId;
+    unitStats.innerHTML = `
+        <div class="stat-row" style="color: ${isEnemy ? '#f66' : '#0cf'}; font-weight: bold;">
+            <span>${isEnemy ? 'ยูนิตศัตรู' : 'ยูนิตของคุณ'}</span>
+            <span>(${unit.owner})</span>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #444;">
+        <div class="stat-row"><span class="stat-label">ประเภท:</span> <span>${unit.type}</span></div>
+        <div class="stat-row">
+            <span class="stat-label">HP:</span> 
+            <span style="color: ${isEnemy ? '#f22' : '#2f2'};">${Math.floor(unit.hp)}/${unit.max_hp}</span>
+        </div>
+        <div class="stat-row"><span class="stat-label">โจมตี:</span> <span>${unit.attack}</span></div>
+        <div class="stat-row"><span class="stat-label">ระยะ:</span> <span>${unit.range}</span></div>
+    `;
+    unitStatusPanel.classList.add('active');
+    closeActionPanel();
+};
+
+window.closeUnitPanel = function() {
+    unitStatusPanel.classList.remove('active');
 };
 
 window.clearMap = function() {
@@ -151,25 +205,26 @@ window.clearMap = function() {
 
 window.getValidExpansionSpots = function() {
     const spots = [];
-    const ownedBlocks = worldBlocks.filter(b => b.owner === playerId);
-    if (ownedBlocks.length === 0) {
-        // Find any neutral block that isn't occupied
-        worldBlocks.forEach(b => {
-            if (!b.owner) spots.push({ x: b.x, y: b.y });
-        });
-        // If no neutral blocks, allow expanding adjacent to origin
-        if (spots.length === 0) spots.push({x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 0, y: -1});
-    } else {
-        ownedBlocks.forEach(b => {
-            [[-1,0], [1,0], [0,-1], [0,1]].forEach(([dx, dy]) => {
-                const nx = b.x + dx;
-                const ny = b.y + dy;
-                if (!worldBlocks.find(ob => ob.x === nx && ob.y === ny)) {
-                    if (!spots.find(s => s.x === nx && s.y === ny)) spots.push({ x: nx, y: ny });
-                }
-            });
-        });
+    if (worldBlocks.length === 0) {
+        spots.push({x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 0, y: -1});
+        return spots;
     }
+
+    // Allow expanding adjacent to ANY existing block (neutral or owned)
+    // This lets you explore further into the world.
+    worldBlocks.forEach(b => {
+        [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([dx, dy]) => {
+            const nx = b.x + dx;
+            const ny = b.y + dy;
+            // If the neighbor spot is empty (no block there yet)
+            if (!worldBlocks.find(ob => ob.x === nx && ob.y === ny)) {
+                // And we haven't already added this spot to our list
+                if (!spots.find(s => s.x === nx && s.y === ny)) {
+                    spots.push({ x: nx, y: ny });
+                }
+            }
+        });
+    });
     return spots;
 };
 
@@ -212,11 +267,24 @@ function render() {
                         if (assetUrl) {
                             const img = getCachedImage(assetUrl);
                             if (img.complete) {
-                                // Calculate scale and offset for buildings
                                 const model = BUILDING_MODELS[tile.type] || { drawScale: 1, offset: 0 };
                                 const size = GAME_CONFIG.tileSize * model.drawScale;
                                 const offset = GAME_CONFIG.tileSize * model.offset;
                                 ctx.drawImage(img, tx_pix - offset, ty_pix - offset, size, size);
+
+                                // Safe Range Indicator
+                                if (selectedBuilding && selectedBuilding.bx === block.x && selectedBuilding.by === block.y && selectedBuilding.tx === tx && selectedBuilding.ty === ty) {
+                                    if (tile.type === "tower" || tile.type === "castle") {
+                                        ctx.beginPath();
+                                        ctx.arc(tx_pix + 10, ty_pix + 10, tile.type === "tower" ? 250 : 150, 0, Math.PI * 2);
+                                        ctx.fillStyle = "rgba(0, 255, 255, 0.05)";
+                                        ctx.fill();
+                                        ctx.strokeStyle = "rgba(0, 255, 255, 0.3)";
+                                        ctx.setLineDash([5, 5]);
+                                        ctx.stroke();
+                                        ctx.setLineDash([]);
+                                    }
+                                }
                             } else {
                                 ctx.fillStyle = COLORS[tile.type] || "gray";
                                 ctx.fillRect(tx_pix, ty_pix, GAME_CONFIG.tileSize, GAME_CONFIG.tileSize);
@@ -236,11 +304,26 @@ function render() {
                     }
                 }
             }
-            
             ctx.strokeStyle = "rgba(0,0,0,0.1)";
             ctx.strokeRect(bx, by, GAME_CONFIG.blockSize, GAME_CONFIG.blockSize);
         });
     }
+
+    // Draw Attack Effects
+    const now = Date.now();
+    attackEffects = attackEffects.filter(eff => now - eff.time < 200);
+    attackEffects.forEach(eff => {
+        ctx.beginPath();
+        ctx.moveTo(eff.x1, eff.y1);
+        ctx.lineTo(eff.x2, eff.y2);
+        ctx.strokeStyle = eff.type === "tower" ? "#0ff" : "#ff0";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        // Glow effect
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    });
 
     if (worldUnits) {
         worldUnits.forEach(u => {
@@ -279,6 +362,20 @@ function render() {
         ctx.setLineDash([5, 5]);
         ctx.strokeRect(selectionBox.x1, selectionBox.y1, selectionBox.x2 - selectionBox.x1, selectionBox.y2 - selectionBox.y1);
         ctx.setLineDash([]);
+    }
+
+    // Explore Mode Highlights
+    if (currentMode === 'explore') {
+        const spots = getValidExpansionSpots();
+        ctx.fillStyle = "rgba(0, 255, 255, 0.2)";
+        ctx.strokeStyle = "rgba(0, 255, 255, 0.5)";
+        ctx.lineWidth = 2;
+        spots.forEach(s => {
+            const sx = s.x * GAME_CONFIG.blockSize;
+            const sy = s.y * GAME_CONFIG.blockSize;
+            ctx.fillRect(sx, sy, GAME_CONFIG.blockSize, GAME_CONFIG.blockSize);
+            ctx.strokeRect(sx, sy, GAME_CONFIG.blockSize, GAME_CONFIG.blockSize);
+        });
     }
 
     ctx.restore();
