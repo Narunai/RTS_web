@@ -1,18 +1,19 @@
 // Centralized configuration and models for the game
 // This makes it easy to change visuals, costs, and stats in one place.
 
-const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
 // --- CONFIGURATION ---
 // 1. ถ้าคุณรันเครื่องตัวเอง (Local): จะใช้ localhost:3000
-// 2. ถ้าคุณรันบน GitHub Pages: คุณต้องเอาโฟลเดอร์ backend ไปรันบน Render.com หรือ Railway.app ก่อน
-//    แล้วเอา URL ที่ได้มาใส่แทนที่ 'YOUR_BACKEND_URL' ข้างล่างนี้ (ไม่ต้องมี http:// หรือ ws://)
-const PRODUCTION_BACKEND_URL = 'rts-web.onrender.com'; // <--- เปลี่ยนเป็น URL ของคุณที่นี่
+// 2. ถ้าคุณต้องการให้คนอื่นเล่นผ่านเน็ต (Self-Host): 
+//    - รันคำสั่ง 'ngrok http 3000' ในเครื่องคุณ
+//    - ก๊อปปี้ URL ที่ได้ (เช่น xxxx.ngrok-free.app) มาใส่ข้างล่างนี้ (ไม่ต้องมี https://)
+const NGROK_URL = 'approach-tinkling-upwind.ngrok-free.dev'; 
 
-const backendHost = isLocal ? `${window.location.hostname}:3000` : PRODUCTION_BACKEND_URL;
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const backendHost = isLocal ? `${window.location.hostname}:3000` : NGROK_URL;
 
-// ตรวจสอบ Protocol (ถ้าอยู่บน GitHub Pages ซึ่งเป็น HTTPS ต้องใช้ wss:// และ https://)
+// ตรวจสอบ Protocol
 const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
+// สำคัญ: ngrok รองรับ wss:// ผ่าน https://
 const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
 
 const backendUrl = `${protocol}://${backendHost}`;
