@@ -21,8 +21,15 @@ app.add_middleware(
 )
 
 # Mount assets
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-app.mount("/assets", StaticFiles(directory=os.path.join(base_dir, "assets")), name="assets")
+base_dir = os.path.dirname(os.path.abspath(__file__))
+assets_dir = os.path.join(base_dir, "assets")
+
+# Ensure assets directory exists to avoid crash
+if not os.path.exists(assets_dir):
+    print(f"Warning: Assets directory not found at {assets_dir}. Creating empty dir.")
+    os.makedirs(assets_dir, exist_ok=True)
+
+app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 # --- Auth ---
 users_db = {}
@@ -587,4 +594,3 @@ async def websocket_endpoint(websocket: WebSocket, player_id: str):
     except WebSocketDisconnect:
         manager.disconnect(player_id)
 
-app.mount("/", StaticFiles(directory=os.path.join(base_dir, "frontend"), html=True), name="frontend")
