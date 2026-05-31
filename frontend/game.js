@@ -27,10 +27,8 @@ function initGame() {
         playerId = localStorage.getItem('rts_player_id');
     }
     
-    // Ensure login overlay is hidden when game starts
     if (loginOverlay) loginOverlay.style.display = 'none';
 
-    // If still no ID (shouldn't happen with continueAsGuest, but safety first)
     if (!playerId) {
         playerId = `guest_${Math.random().toString(36).substr(2, 9)}`;
         localStorage.setItem('rts_player_id', playerId);
@@ -39,8 +37,23 @@ function initGame() {
     const playerDisplay = document.getElementById('player-display');
     if (playerDisplay) playerDisplay.innerText = `ID: ${playerId}`;
     
+    if (statusEl) statusEl.innerText = "กำลังเชื่อมต่อ...";
     socket = new WebSocket(`${wsUrl}/ws/${playerId}`);
-    socket.onopen = () => { if (statusEl) statusEl.innerText = "เชื่อมต่อแล้ว: " + playerId; };
+    
+    socket.onopen = () => { 
+        if (statusEl) {
+            statusEl.innerText = "เชื่อมต่อแล้ว: " + playerId;
+            statusEl.style.color = "#0f0";
+        }
+    };
+    
+    socket.onclose = () => {
+        if (statusEl) {
+            statusEl.innerText = "การเชื่อมต่อหลุด...";
+            statusEl.style.color = "#f00";
+        }
+    };
+
     socket.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         if (msg.type === "INIT") {
@@ -73,6 +86,15 @@ function initGame() {
 
     if (window.initInput) window.initInput();
 }
+
+window.safeSend = function(data) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(data));
+    } else {
+        console.warn("WebSocket not ready. Message dropped:", data);
+        showNotification("กำลังเชื่อมต่อเซิร์ฟเวอร์... กรุณารอสักครู่");
+    }
+};
 
 function updateUI(data) {
     if (resGold) resGold.innerText = Math.floor(data.gold);
@@ -142,7 +164,7 @@ function showActionPanel(type, bx, by, tx, ty) {
                 if (act.action === "produceGatherer") msgType = "PRODUCE_GATHERER";
                 else if (act.action === "produceArcher") msgType = "PRODUCE_ARCHER";
                 
-                socket.send(JSON.stringify({ type: msgType, bx, by, tx, ty }));
+                window.safeSend({ type: msgType, bx, by, tx, ty });
             };
             panelContent.appendChild(btn);
         });
@@ -153,7 +175,7 @@ function showActionPanel(type, bx, by, tx, ty) {
         sellBtn.style.background = "#622";
         sellBtn.innerText = "ขายสิ่งก่อสร้าง (คืนทุน 100%)";
         sellBtn.onclick = () => {
-            socket.send(JSON.stringify({ type: "SELL_BUILDING", bx, by, tx, ty }));
+            window.safeSend({ type: "SELL_BUILDING", bx, by, tx, ty });
             closeActionPanel();
         };
         panelContent.appendChild(sellBtn);
@@ -199,7 +221,7 @@ window.closeUnitPanel = function() {
 
 window.clearMap = function() {
     if (confirm("คุณแน่ใจหรือไม่ว่าต้องการล้างแผนที่ทั้งหมด?")) {
-        socket.send(JSON.stringify({ type: "CLEAR_MAP" }));
+        window.safeSend({ type: "CLEAR_MAP" });
     }
 };
 

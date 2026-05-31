@@ -64,11 +64,11 @@ function handleBuildModeInteraction(worldX, worldY) {
     const by = Math.floor(worldY / GAME_CONFIG.blockSize);
     if (currentMode === 'explore') {
         const spots = getValidExpansionSpots();
-        if (spots.some(s => s.x === bx && s.y === by)) socket.send(JSON.stringify({ type: "EXPLORE", x: bx, y: by }));
+        if (spots.some(s => s.x === bx && s.y === by)) window.safeSend({ type: "EXPLORE", x: bx, y: by });
     } else if (currentMode === 'build' && currentBuildType) {
         const tx = Math.floor((worldX % GAME_CONFIG.blockSize + (worldX < 0 ? GAME_CONFIG.blockSize : 0)) / GAME_CONFIG.tileSize) % 30;
         const ty = Math.floor((worldY % GAME_CONFIG.blockSize + (worldY < 0 ? GAME_CONFIG.blockSize : 0)) / GAME_CONFIG.tileSize) % 30;
-        socket.send(JSON.stringify({ type: "BUILD", bx, by, tx, ty, building_type: currentBuildType }));
+        window.safeSend({ type: "BUILD", bx, by, tx, ty, building_type: currentBuildType });
     }
 }
 
@@ -128,6 +128,6 @@ function handleRightClick(e) {
         const my = e.clientY - rect.top;
         const worldX = (mx - canvas.width / 2) / camera.zoom + camera.x;
         const worldY = (my - canvas.height / 2) / camera.zoom + camera.y;
-        socket.send(JSON.stringify({ type: "MOVE_UNITS", unit_ids: selectedUnitIds, x: worldX, y: worldY }));
+        window.safeSend({ type: "MOVE_UNITS", unit_ids: selectedUnitIds, x: worldX, y: worldY });
     }
 }
