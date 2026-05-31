@@ -22,6 +22,8 @@ let selectedBuilding = null; // { bx, by, tx, ty, type }
 let isDraggingCamera = false;
 let lastMouse = { x: 0, y: 0 };
 
+let socketQueue = [];
+
 function initGame() {
     if (!playerId) {
         playerId = localStorage.getItem('rts_player_id');
@@ -37,7 +39,17 @@ function initGame() {
     const playerDisplay = document.getElementById('player-display');
     if (playerDisplay) playerDisplay.innerText = `ID: ${playerId}`;
     
-    if (statusEl) statusEl.innerText = "กำลังเชื่อมต่อ...";
+    connectSocket();
+    
+    if (window.initInput) window.initInput();
+}
+
+function connectSocket() {
+    if (statusEl) {
+        statusEl.innerText = "กำลังเชื่อมต่อ...";
+        statusEl.style.color = "#fff";
+    }
+    
     socket = new WebSocket(`${wsUrl}/ws/${playerId}`);
     
     socket.onopen = () => { 
@@ -45,13 +57,19 @@ function initGame() {
             statusEl.innerText = "เชื่อมต่อแล้ว: " + playerId;
             statusEl.style.color = "#0f0";
         }
+        // Send queued messages
+        while (socketQueue.length > 0) {
+            const msg = socketQueue.shift();
+            socket.send(JSON.stringify(msg));
+        }
     };
     
     socket.onclose = () => {
         if (statusEl) {
-            statusEl.innerText = "การเชื่อมต่อหลุด...";
-            statusEl.style.color = "#f00";
+            statusEl.innerText = "กำลังพยายามเชื่อมต่อใหม่...";
+            statusEl.style.color = "#ffa500";
         }
+        setTimeout(connectSocket, 2000); // Auto-reconnect
     };
 
     socket.onmessage = (event) => {
@@ -83,16 +101,17 @@ function initGame() {
         }
         render();
     };
-
-    if (window.initInput) window.initInput();
 }
 
 window.safeSend = function(data) {
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify(data));
     } else {
-        console.warn("WebSocket not ready. Message dropped:", data);
-        showNotification("กำลังเชื่อมต่อเซิร์ฟเวอร์... กรุณารอสักครู่");
+        console.log("WebSocket not ready. Queuing message:", data);
+        socketQueue.push(data);
+        if (socket && socket.readyState === WebSocket.CLOSED) {
+            connectSocket();
+        }
     }
 };
 
