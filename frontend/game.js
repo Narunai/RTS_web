@@ -210,15 +210,11 @@ window.getValidExpansionSpots = function() {
         return spots;
     }
 
-    // Allow expanding adjacent to ANY existing block (neutral or owned)
-    // This lets you explore further into the world.
     worldBlocks.forEach(b => {
         [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([dx, dy]) => {
             const nx = b.x + dx;
             const ny = b.y + dy;
-            // If the neighbor spot is empty (no block there yet)
             if (!worldBlocks.find(ob => ob.x === nx && ob.y === ny)) {
-                // And we haven't already added this spot to our list
                 if (!spots.find(s => s.x === nx && s.y === ny)) {
                     spots.push({ x: nx, y: ny });
                 }
@@ -229,14 +225,16 @@ window.getValidExpansionSpots = function() {
 };
 
 
-// Image Cache
+// Image Cache with Error Handling
 const imageCache = {};
 function getCachedImage(url) {
     if (!imageCache[url]) {
         const img = new Image();
+        img.dataset.status = "loading";
+        img.onload = () => { img.dataset.status = "loaded"; };
         img.onerror = () => {
             console.error(`Failed to load image: ${url}`);
-            img.dataset.broken = "true";
+            img.dataset.status = "error";
         };
         img.src = url;
         imageCache[url] = img;
@@ -245,8 +243,8 @@ function getCachedImage(url) {
 }
 
 function drawImageDefensive(ctx, img, x, y, w, h, fallbackColor = "gray") {
-    // Check if image is loaded AND not broken
-    if (img && img.complete && img.naturalWidth > 0 && !img.dataset.broken) {
+    // Check status via dataset
+    if (img && img.dataset.status === "loaded" && img.naturalWidth > 0) {
         try {
             ctx.drawImage(img, x, y, w, h);
         } catch (e) {
@@ -255,7 +253,7 @@ function drawImageDefensive(ctx, img, x, y, w, h, fallbackColor = "gray") {
             ctx.fillRect(x, y, w, h);
         }
     } else {
-        // Fallback to rectangle
+        // Still loading, missing, or broken
         ctx.fillStyle = fallbackColor;
         ctx.fillRect(x, y, w, h);
     }
@@ -276,7 +274,6 @@ function render() {
             const bx = block.x * GAME_CONFIG.blockSize;
             const by = block.y * GAME_CONFIG.blockSize;
             
-            // Draw tiles
             for (let ty = 0; ty < 30; ty++) {
                 for (let tx = 0; tx < 30; tx++) {
                     const tile = block.tiles[ty][tx];
@@ -295,7 +292,6 @@ function render() {
                             
                             drawImageDefensive(ctx, img, tx_pix - offset, ty_pix - offset, size, size, fallbackColor);
 
-                            // Safe Range Indicator
                             if (selectedBuilding && selectedBuilding.bx === block.x && selectedBuilding.by === block.y && selectedBuilding.tx === tx && selectedBuilding.ty === ty) {
                                 if (tile.type === "tower" || tile.type === "castle") {
                                     ctx.beginPath();
@@ -313,7 +309,6 @@ function render() {
                             ctx.fillRect(tx_pix, ty_pix, GAME_CONFIG.tileSize, GAME_CONFIG.tileSize);
                         }
                         
-                        // Health bar
                         if (tile.hp < tile.max_hp) {
                             ctx.fillStyle = "red";
                             ctx.fillRect(tx_pix, ty_pix - 5, GAME_CONFIG.tileSize, 3);
@@ -328,7 +323,6 @@ function render() {
         });
     }
 
-    // Draw Attack Effects
     const now = Date.now();
     attackEffects = attackEffects.filter(eff => now - eff.time < 200);
     attackEffects.forEach(eff => {
@@ -338,7 +332,6 @@ function render() {
         ctx.strokeStyle = eff.type === "tower" ? "#0ff" : "#ff0";
         ctx.lineWidth = 3;
         ctx.stroke();
-        // Glow effect
         ctx.strokeStyle = "white";
         ctx.lineWidth = 1;
         ctx.stroke();
@@ -357,14 +350,12 @@ function render() {
                 ctx.fillRect(u.x, u.y, 20, 20);
             }
             
-            // Selection indicator
             if (typeof selectedUnitIds !== 'undefined' && selectedUnitIds.includes(u.id)) {
                 ctx.strokeStyle = "white";
                 ctx.lineWidth = 2;
                 ctx.strokeRect(u.x - 2, u.y - 2, 24, 24);
             }
 
-            // HP bar
             ctx.fillStyle = "red";
             ctx.fillRect(u.x, u.y - 8, 20, 4);
             ctx.fillStyle = "green";
@@ -372,23 +363,6 @@ function render() {
         });
     }
 
-            
-            // Selection indicator
-            if (typeof selectedUnitIds !== 'undefined' && selectedUnitIds.includes(u.id)) {
-                ctx.strokeStyle = "white";
-                ctx.lineWidth = 2;
-                ctx.strokeRect(u.x - 2, u.y - 2, 24, 24);
-            }
-
-            // HP bar
-            ctx.fillStyle = "red";
-            ctx.fillRect(u.x, u.y - 8, 20, 4);
-            ctx.fillStyle = "green";
-            ctx.fillRect(u.x, u.y - 8, 20 * (u.hp / u.max_hp), 4);
-        });
-    }
-
-    // Selection Box
     if (typeof isSelecting !== 'undefined' && isSelecting && selectionBox) {
         ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
         ctx.setLineDash([5, 5]);
@@ -396,7 +370,6 @@ function render() {
         ctx.setLineDash([]);
     }
 
-    // Explore Mode Highlights
     if (currentMode === 'explore') {
         const spots = getValidExpansionSpots();
         ctx.fillStyle = "rgba(0, 255, 255, 0.2)";
