@@ -234,10 +234,31 @@ const imageCache = {};
 function getCachedImage(url) {
     if (!imageCache[url]) {
         const img = new Image();
+        img.onerror = () => {
+            console.error(`Failed to load image: ${url}`);
+            img.dataset.broken = "true";
+        };
         img.src = url;
         imageCache[url] = img;
     }
     return imageCache[url];
+}
+
+function drawImageDefensive(ctx, img, x, y, w, h, fallbackColor = "gray") {
+    // Check if image is loaded AND not broken
+    if (img && img.complete && img.naturalWidth > 0 && !img.dataset.broken) {
+        try {
+            ctx.drawImage(img, x, y, w, h);
+        } catch (e) {
+            console.warn("drawImage failed even with checks:", e);
+            ctx.fillStyle = fallbackColor;
+            ctx.fillRect(x, y, w, h);
+        }
+    } else {
+        // Fallback to rectangle
+        ctx.fillStyle = fallbackColor;
+        ctx.fillRect(x, y, w, h);
+    }
 }
 
 function render() {
@@ -264,33 +285,31 @@ function render() {
                     
                     if (tile.type !== "empty") {
                         const assetUrl = ASSETS[tile.type];
+                        const fallbackColor = COLORS[tile.type] || "gray";
+                        
                         if (assetUrl) {
                             const img = getCachedImage(assetUrl);
-                            if (img.complete) {
-                                const model = BUILDING_MODELS[tile.type] || { drawScale: 1, offset: 0 };
-                                const size = GAME_CONFIG.tileSize * model.drawScale;
-                                const offset = GAME_CONFIG.tileSize * model.offset;
-                                ctx.drawImage(img, tx_pix - offset, ty_pix - offset, size, size);
+                            const model = BUILDING_MODELS[tile.type] || { drawScale: 1, offset: 0 };
+                            const size = GAME_CONFIG.tileSize * model.drawScale;
+                            const offset = GAME_CONFIG.tileSize * model.offset;
+                            
+                            drawImageDefensive(ctx, img, tx_pix - offset, ty_pix - offset, size, size, fallbackColor);
 
-                                // Safe Range Indicator
-                                if (selectedBuilding && selectedBuilding.bx === block.x && selectedBuilding.by === block.y && selectedBuilding.tx === tx && selectedBuilding.ty === ty) {
-                                    if (tile.type === "tower" || tile.type === "castle") {
-                                        ctx.beginPath();
-                                        ctx.arc(tx_pix + 10, ty_pix + 10, tile.type === "tower" ? 250 : 150, 0, Math.PI * 2);
-                                        ctx.fillStyle = "rgba(0, 255, 255, 0.05)";
-                                        ctx.fill();
-                                        ctx.strokeStyle = "rgba(0, 255, 255, 0.3)";
-                                        ctx.setLineDash([5, 5]);
-                                        ctx.stroke();
-                                        ctx.setLineDash([]);
-                                    }
+                            // Safe Range Indicator
+                            if (selectedBuilding && selectedBuilding.bx === block.x && selectedBuilding.by === block.y && selectedBuilding.tx === tx && selectedBuilding.ty === ty) {
+                                if (tile.type === "tower" || tile.type === "castle") {
+                                    ctx.beginPath();
+                                    ctx.arc(tx_pix + 10, ty_pix + 10, tile.type === "tower" ? 250 : 150, 0, Math.PI * 2);
+                                    ctx.fillStyle = "rgba(0, 255, 255, 0.05)";
+                                    ctx.fill();
+                                    ctx.strokeStyle = "rgba(0, 255, 255, 0.3)";
+                                    ctx.setLineDash([5, 5]);
+                                    ctx.stroke();
+                                    ctx.setLineDash([]);
                                 }
-                            } else {
-                                ctx.fillStyle = COLORS[tile.type] || "gray";
-                                ctx.fillRect(tx_pix, ty_pix, GAME_CONFIG.tileSize, GAME_CONFIG.tileSize);
                             }
                         } else {
-                            ctx.fillStyle = COLORS[tile.type] || "gray";
+                            ctx.fillStyle = fallbackColor;
                             ctx.fillRect(tx_pix, ty_pix, GAME_CONFIG.tileSize, GAME_CONFIG.tileSize);
                         }
                         
@@ -328,18 +347,31 @@ function render() {
     if (worldUnits) {
         worldUnits.forEach(u => {
             const assetUrl = ASSETS[u.type];
+            const fallbackColor = u.owner === playerId ? "blue" : "red";
+            
             if (assetUrl) {
                 const img = getCachedImage(assetUrl);
-                if (img.complete) {
-                    ctx.drawImage(img, u.x - 10, u.y - 10, 40, 40);
-                } else {
-                    ctx.fillStyle = u.owner === playerId ? "blue" : "red";
-                    ctx.fillRect(u.x, u.y, 20, 20);
-                }
+                drawImageDefensive(ctx, img, u.x - 10, u.y - 10, 40, 40, fallbackColor);
             } else {
-                ctx.fillStyle = u.owner === playerId ? "blue" : "red";
+                ctx.fillStyle = fallbackColor;
                 ctx.fillRect(u.x, u.y, 20, 20);
             }
+            
+            // Selection indicator
+            if (typeof selectedUnitIds !== 'undefined' && selectedUnitIds.includes(u.id)) {
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(u.x - 2, u.y - 2, 24, 24);
+            }
+
+            // HP bar
+            ctx.fillStyle = "red";
+            ctx.fillRect(u.x, u.y - 8, 20, 4);
+            ctx.fillStyle = "green";
+            ctx.fillRect(u.x, u.y - 8, 20 * (u.hp / u.max_hp), 4);
+        });
+    }
+
             
             // Selection indicator
             if (typeof selectedUnitIds !== 'undefined' && selectedUnitIds.includes(u.id)) {
