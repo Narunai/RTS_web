@@ -1,8 +1,23 @@
 // Centralized configuration and models for the game
 // This makes it easy to change visuals, costs, and stats in one place.
 
-const backendHost = window.location.hostname;
-const backendUrl = `http://${backendHost}:3000`;
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+// --- CONFIGURATION ---
+// 1. ถ้าคุณรันเครื่องตัวเอง (Local): จะใช้ localhost:3000
+// 2. ถ้าคุณรันบน GitHub Pages: คุณต้องเอาโฟลเดอร์ backend ไปรันบน Render.com หรือ Railway.app ก่อน
+//    แล้วเอา URL ที่ได้มาใส่แทนที่ 'YOUR_BACKEND_URL' ข้างล่างนี้ (ไม่ต้องมี http:// หรือ ws://)
+const PRODUCTION_BACKEND_URL = 'rts-web-backend.onrender.com'; // <--- เปลี่ยนเป็น URL ของคุณที่นี่
+
+const backendHost = isLocal ? `${window.location.hostname}:3000` : PRODUCTION_BACKEND_URL;
+
+// ตรวจสอบ Protocol (ถ้าอยู่บน GitHub Pages ซึ่งเป็น HTTPS ต้องใช้ wss:// และ https://)
+const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
+const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+
+const backendUrl = `${protocol}://${backendHost}`;
+const wsUrl = `${wsProtocol}://${backendHost}`;
+// ---------------------
 
 const GAME_CONFIG = {
     tileSize: 20,
@@ -14,20 +29,20 @@ const GAME_CONFIG = {
 
 const ASSETS = {
     // Buildings
-    castle: `${backendUrl}/assets/PNG/Top-Down Simple Summer_Prop - Castle Round.png`,
-    tower: `${backendUrl}/assets/PNG/Top-Down Simple Summer_Prop - Watchtower Tall.png`,
-    barracks: `${backendUrl}/assets/PNG/Top-Down Simple Summer_Prop - House.png`,
-    archery_range: `${backendUrl}/assets/PNG/Top-Down Simple Summer_Prop - Tent.png`,
+    castle: `${backendUrl}/assets/Model_on/LV000_STARTER/Castle.png`,
+    tower: `${backendUrl}/assets/Model_on/LV000_STARTER/Tower.png`,
+    barracks: `${backendUrl}/assets/Model_on/LV000_STARTER/Barracks.png`,
+    archery_range: `${backendUrl}/assets/Model_on/LV000_STARTER/barracks_archer.png`,
     
     // Units
-    soldier: `${backendUrl}/assets/Viking Leader/PNG/PNG Sequences/Front - Idle/Front - Idle_000.png`,
-    gatherer: `${backendUrl}/assets/Robber/PNG/PNG Sequences/Front - Idle/Front - Idle_000.png`,
-    archer: `${backendUrl}/assets/Thug/PNG/PNG Sequences/Front - Idle/Front - Idle_000.png`,
+    soldier: `${backendUrl}/assets/Model_on/LV000_STARTER/Soldier.png`,
+    gatherer: `${backendUrl}/assets/Model_on/LV000_STARTER/Gatherer.png`,
+    archer: `${backendUrl}/assets/Model_on/LV000_STARTER/Archer.png`,
     
     // Resources
-    resource_gold: `${backendUrl}/assets/PNG/Top-Down Simple Summer_Prop - Rock 01.png`,
-    resource_wood: `${backendUrl}/assets/PNG/Top-Down Simple Summer_prop - Tree Large.png`,
-    resource_food: `${backendUrl}/assets/PNG/Top-Down Simple Summer_Prop - Bushes Large.png`
+    resource_gold: `${backendUrl}/assets/Model_on/LV000_STARTER/Gold.png`,
+    resource_wood: `${backendUrl}/assets/Model_on/LV000_STARTER/tree.png`,
+    resource_food: `${backendUrl}/assets/Model_on/LV000_STARTER/bush.png`
 };
 
 const COLORS = {
@@ -58,8 +73,8 @@ const BUILDING_MODELS = {
     barracks: {
         title: "ค่ายทหาร",
         description: "โรงฝึกทหารราบไวกิ้ง",
-        drawScale: 2,
-        offset: 0.5,
+        drawScale: 3,
+        offset: 1,
         actions: [
             { label: "ผลิตทหาร (Viking)", sub: "G:50, F:100", action: "produceSoldier" }
         ]
@@ -67,8 +82,8 @@ const BUILDING_MODELS = {
     archery_range: {
         title: "โรงฝึกธนู",
         description: "โรงฝึกนักธนูระยะไกล",
-        drawScale: 2,
-        offset: 0.5,
+        drawScale: 3,
+        offset: 1,
         actions: [
             { label: "ผลิตนักธนู", sub: "G:120, F:80", action: "produceArcher" }
         ]
@@ -77,7 +92,42 @@ const BUILDING_MODELS = {
         title: "ป้อมปราการ",
         description: "กำลังเฝ้าโหมดระวังภัย (ระยะ 5x5)",
         drawScale: 2,
-        offset: 0.5,
+        offset: 1,
         actions: []
     }
 };
+
+const UNIT_SIZE = {
+
+    soldier: {
+        width: 10,
+        height: 10
+    },
+
+    gatherer: {
+        width: 10,
+        height: 10
+    },
+
+    archer: {
+        width: 10,
+        height: 10
+    }
+};
+function drawUnit(ctx, unit) {
+
+    const img = images[unit.type];
+
+    const size = UNIT_SIZE[unit.type];
+
+    const width = size.width;
+    const height = size.height;
+
+    ctx.drawImage(
+        img,
+        unit.x - width / 2,
+        unit.y - height / 2,
+        width,
+        height
+    );
+}

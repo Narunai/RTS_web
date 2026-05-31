@@ -39,7 +39,7 @@ function initGame() {
     const playerDisplay = document.getElementById('player-display');
     if (playerDisplay) playerDisplay.innerText = `ID: ${playerId}`;
     
-    socket = new WebSocket(`ws://${window.location.hostname}:3000/ws/${playerId}`);
+    socket = new WebSocket(`${wsUrl}/ws/${playerId}`);
     socket.onopen = () => { if (statusEl) statusEl.innerText = "เชื่อมต่อแล้ว: " + playerId; };
     socket.onmessage = (event) => {
         const msg = JSON.parse(event.data);
