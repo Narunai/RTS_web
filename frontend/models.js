@@ -7,7 +7,7 @@ const isLocal = window.location.hostname === 'localhost' || window.location.host
 // 1. ถ้าคุณรันเครื่องตัวเอง (Local): จะใช้ localhost:3000
 // 2. ถ้าคุณรันบน GitHub Pages: คุณต้องเอาโฟลเดอร์ backend ไปรันบน Render.com หรือ Railway.app ก่อน
 //    แล้วเอา URL ที่ได้มาใส่แทนที่ 'YOUR_BACKEND_URL' ข้างล่างนี้ (ไม่ต้องมี http:// หรือ ws://)
-const PRODUCTION_BACKEND_URL = 'rtsweb-production.up.railway.app'; // <--- เปลี่ยนเป็น URL ของคุณที่นี่
+const PRODUCTION_BACKEND_URL = 'rts-web.onrender.com'; // <--- เปลี่ยนเป็น URL ของคุณที่นี่
 
 const backendHost = isLocal ? `${window.location.hostname}:3000` : PRODUCTION_BACKEND_URL;
 
