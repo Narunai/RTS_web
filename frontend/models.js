@@ -29,18 +29,18 @@ const GAME_CONFIG = {
 
 const ASSETS = {
     // Buildings
-    castle: `${backendUrl}/assets/Model_on/LV000_STARTER/Castle.png`,
-    tower: `${backendUrl}/assets/Model_on/LV000_STARTER/Tower.png`,
-    barracks: `${backendUrl}/assets/Model_on/LV000_STARTER/Barracks.png`,
+    castle: `${backendUrl}/assets/Model_on/LV000_STARTER/castle.png`,
+    tower: `${backendUrl}/assets/Model_on/LV000_STARTER/tower.png`,
+    barracks: `${backendUrl}/assets/Model_on/LV000_STARTER/barracks.png`,
     archery_range: `${backendUrl}/assets/Model_on/LV000_STARTER/barracks_archer.png`,
     
     // Units
-    soldier: `${backendUrl}/assets/Model_on/LV000_STARTER/Soldier.png`,
-    gatherer: `${backendUrl}/assets/Model_on/LV000_STARTER/Gatherer.png`,
-    archer: `${backendUrl}/assets/Model_on/LV000_STARTER/Archer.png`,
+    soldier: `${backendUrl}/assets/Model_on/LV000_STARTER/soldier.png`,
+    gatherer: `${backendUrl}/assets/Model_on/LV000_STARTER/gatherer.png`,
+    archer: `${backendUrl}/assets/Model_on/LV000_STARTER/archer.png`,
     
     // Resources
-    resource_gold: `${backendUrl}/assets/Model_on/LV000_STARTER/Gold.png`,
+    resource_gold: `${backendUrl}/assets/Model_on/LV000_STARTER/gold.png`,
     resource_wood: `${backendUrl}/assets/Model_on/LV000_STARTER/tree.png`,
     resource_food: `${backendUrl}/assets/Model_on/LV000_STARTER/bush.png`
 };
